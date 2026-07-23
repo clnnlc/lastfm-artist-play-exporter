@@ -1,0 +1,32 @@
+# --- Secrets & personal data (NEVER commit) ---
+# lastfm_config.json contains api_key, api_secret, session_key
+lastfm_config.json
+# raw Spotify "extended streaming history" exports
+streaming_history_audio_*.json
+Streaming_History_*.json
+endsong_*.json
+# generated exports of your listening history
+lastfm_import_*.json
+
+# --- Build artifacts ---
+build/
+dist/
+*.exe
+*.spec.bak
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+
+# --- Editor / OS / tooling ---
+.claude/
+docs/superpowers/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
