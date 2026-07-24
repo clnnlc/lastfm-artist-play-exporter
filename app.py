@@ -12,6 +12,7 @@ from tkinter import filedialog, messagebox, ttk
 
 import customtkinter as ctk
 
+import credentials
 import i18n
 import lastfm_api
 import theme
@@ -49,68 +50,79 @@ def _font(size: int, weight: str = "normal") -> ctk.CTkFont:
 
 
 class ScrobbleSetupDialog(ctk.CTkToplevel):
-    """Zweistufiger Last.fm-Auth-Flow: Browser-Freigabe, dann Session-Key."""
+    """Last.fm-Verknuepfung. Mit mitgeliefertem App-Key nur Browser-Freigabe;
+    ohne (Source-Build) Fallback mit eigenem Key/Secret."""
 
-    def __init__(self, master: ctk.CTk, config: dict, config_path: str) -> None:
+    def __init__(self, master: ctk.CTk, app_creds: tuple[str, str] | None,
+                 base_dir: str) -> None:
         super().__init__(master)
         self.title(t("setup.title"))
-        self.geometry("520x380")
+        self.geometry("520x360")
         self.resizable(False, False)
         self.configure(fg_color=theme.BG)
         self.transient(master)
         self.after(250, self._safe_grab)
 
-        self.config_path = config_path
+        self.app_creds = app_creds
+        self.base_dir = base_dir
         self.result: dict | None = None
         self._token: str | None = None
         self._token_creds: tuple[str, str] | None = None
+        self.key_entry: ctk.CTkEntry | None = None
+        self.secret_entry: ctk.CTkEntry | None = None
 
         self.grid_columnconfigure(0, weight=1)
 
         ctk.CTkLabel(self, text=t("setup.title"),
                      font=_font(18, "bold")).grid(
             row=0, column=0, sticky="w", padx=24, pady=(20, 2))
-        info = ctk.CTkFrame(self, fg_color="transparent")
-        info.grid(row=1, column=0, sticky="ew", padx=24, pady=(0, 12))
-        info.grid_columnconfigure(0, weight=1)
-        ctk.CTkLabel(info, text=t("setup.info"),
-                     justify="left", font=_font(12),
-                     text_color=theme.TEXT_MUTED).grid(row=0, column=0,
-                                                       sticky="w")
-        ctk.CTkButton(info, text=t("setup.open_accounts"), height=30, width=150,
-                      font=_font(12), fg_color=theme.SURFACE_2,
-                      hover_color=theme.BORDER, text_color=theme.TEXT,
-                      command=lambda: webbrowser.open(
-                          "https://www.last.fm/api/accounts")
-                      ).grid(row=0, column=1, padx=(12, 0))
 
-        self.key_entry = ctk.CTkEntry(self, height=38,
-                                      placeholder_text=t("setup.api_key"))
-        self.key_entry.grid(row=2, column=0, sticky="ew", padx=24, pady=(0, 8))
-        self.secret_entry = ctk.CTkEntry(self, height=38,
-                                         placeholder_text=t("setup.api_secret"))
-        self.secret_entry.grid(row=3, column=0, sticky="ew", padx=24,
-                               pady=(0, 14))
-        if config.get("api_key"):
-            self.key_entry.insert(0, config["api_key"])
-        if config.get("api_secret"):
-            self.secret_entry.insert(0, config["api_secret"])
+        info_key = "setup.info_connect" if app_creds else "setup.info"
+        ctk.CTkLabel(self, text=t(info_key), justify="left", font=_font(12),
+                     text_color=theme.TEXT_MUTED, wraplength=460).grid(
+            row=1, column=0, sticky="w", padx=24, pady=(0, 12))
+
+        row = 2
+        if app_creds is None:
+            acct = ctk.CTkFrame(self, fg_color="transparent")
+            acct.grid(row=row, column=0, sticky="ew", padx=24, pady=(0, 8))
+            acct.grid_columnconfigure(0, weight=1)
+            ctk.CTkButton(acct, text=t("setup.open_accounts"), height=30,
+                          width=150, font=_font(12), fg_color=theme.SURFACE_2,
+                          hover_color=theme.BORDER, text_color=theme.TEXT,
+                          command=lambda: webbrowser.open(
+                              "https://www.last.fm/api/accounts")
+                          ).grid(row=0, column=1)
+            row += 1
+            self.key_entry = ctk.CTkEntry(self, height=38,
+                                          placeholder_text=t("setup.api_key"))
+            self.key_entry.grid(row=row, column=0, sticky="ew", padx=24,
+                                pady=(0, 8))
+            row += 1
+            self.secret_entry = ctk.CTkEntry(
+                self, height=38, placeholder_text=t("setup.api_secret"))
+            self.secret_entry.grid(row=row, column=0, sticky="ew", padx=24,
+                                   pady=(0, 14))
+            row += 1
 
         self.step1_btn = ctk.CTkButton(
-            self, text=t("setup.step1"), height=40,
-            command=self._start_auth)
-        self.step1_btn.grid(row=4, column=0, sticky="ew", padx=24, pady=(0, 8))
+            self, text=t("setup.connect") if app_creds else t("setup.step1"),
+            height=40, command=self._start_auth)
+        self.step1_btn.grid(row=row, column=0, sticky="ew", padx=24, pady=(0, 8))
+        row += 1
+
         self.step2_btn = ctk.CTkButton(
-            self, text=t("setup.step2"), height=40,
-            state="disabled", fg_color=theme.SURFACE_2,
+            self, text=t("setup.authorized") if app_creds else t("setup.step2"),
+            height=40, state="disabled", fg_color=theme.SURFACE_2,
             hover_color=theme.BORDER, text_color=theme.TEXT,
             command=self._finish_auth)
-        self.step2_btn.grid(row=5, column=0, sticky="ew", padx=24, pady=(0, 10))
+        self.step2_btn.grid(row=row, column=0, sticky="ew", padx=24, pady=(0, 10))
+        row += 1
 
         self.status = ctk.CTkLabel(self, text="", font=_font(12),
                                    wraplength=460, justify="left",
                                    text_color=theme.TEXT_MUTED)
-        self.status.grid(row=6, column=0, sticky="ew", padx=24, pady=(0, 16))
+        self.status.grid(row=row, column=0, sticky="ew", padx=24, pady=(0, 16))
 
     def _safe_grab(self) -> None:
         # CTkToplevel ist direkt nach dem Erstellen kurz unsichtbar;
@@ -121,6 +133,8 @@ class ScrobbleSetupDialog(ctk.CTkToplevel):
             self.after(250, self._safe_grab)
 
     def _credentials(self) -> tuple[str, str] | None:
+        if self.app_creds:
+            return self.app_creds
         key = self.key_entry.get().strip()
         secret = self.secret_entry.get().strip()
         if not key or not secret:
@@ -168,10 +182,16 @@ class ScrobbleSetupDialog(ctk.CTkToplevel):
         except lastfm_api.LastfmError as err:
             self.status.configure(text=str(err), text_color=theme.ERROR)
             return
+        # Nur der selbst eingegebene Key/Secret wird mitverschluesselt;
+        # ein mitgelieferter App-Key kommt beim Start aus dem Bundle.
+        store_key = None if self.app_creds else key
+        store_secret = None if self.app_creds else secret
+        credentials.save_session(self.base_dir, session["key"],
+                                 session.get("name", ""),
+                                 api_key=store_key, api_secret=store_secret)
         self.result = {"api_key": key, "api_secret": secret,
                        "session_key": session["key"],
                        "username": session.get("name", "")}
-        lastfm_api.save_config(self.result, self.config_path)
         self.destroy()
 
 
@@ -701,7 +721,7 @@ class App(ctk.CTk):
     def _add_custom_artist(self) -> None:
         """Fuegt einen Artist hinzu, der nicht in der JSON steht: holt dessen
         Top-Tracks von Last.fm und macht sie scrobble-/exportierbar."""
-        config = self._ensure_lastfm_config()
+        config = self._ensure_lastfm_session()
         if not config:
             return
         dialog = AddArtistDialog(self, default_count=MAX_TOTAL_PLAYS)
@@ -849,14 +869,15 @@ class App(ctk.CTk):
     def _config_path(self) -> str:
         return os.path.join(self.folder, lastfm_api.CONFIG_FILENAME)
 
-    def _ensure_lastfm_config(self) -> dict | None:
-        config = lastfm_api.load_config(self._config_path())
-        needed = ("api_key", "api_secret", "session_key")
-        if all(config.get(k) for k in needed):
-            return config
-        dialog = ScrobbleSetupDialog(self, config, self._config_path())
+    def _ensure_lastfm_session(self) -> dict | None:
+        app_creds = credentials.app_credentials()
+        stored = credentials.load_session(self.folder)
+        resolved = credentials.resolve_credentials(app_creds, stored)
+        if resolved:
+            return resolved
+        dialog = ScrobbleSetupDialog(self, app_creds, self.folder)
         self.wait_window(dialog)
-        if dialog.result and all(dialog.result.get(k) for k in needed):
+        if dialog.result and dialog.result.get("session_key"):
             return dialog.result
         return None
 
@@ -864,7 +885,7 @@ class App(ctk.CTk):
         selections = self._current_selections()
         if not selections:
             return
-        config = self._ensure_lastfm_config()
+        config = self._ensure_lastfm_session()
         if not config:
             return
         total = sum(selections.values())

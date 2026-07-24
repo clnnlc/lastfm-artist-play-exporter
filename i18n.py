@@ -70,6 +70,20 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     },
     # Setup-Dialog
     "setup.title": {"de": "Mit Last.fm verbinden", "en": "Connect to Last.fm"},
+    "setup.info_connect": {
+        "de": ("Verbinde dein Last.fm-Konto. Es öffnet sich der Browser zur "
+               "Freigabe – danach unten „Autorisierung abgeschlossen“ klicken."),
+        "en": ("Connect your Last.fm account. The browser opens for you to "
+               "authorize – then click “Authorization complete” below."),
+    },
+    "setup.connect": {
+        "de": "🔗  Mit Last.fm verbinden",
+        "en": "🔗  Connect Last.fm",
+    },
+    "setup.authorized": {
+        "de": "✓  Autorisierung abgeschlossen",
+        "en": "✓  Authorization complete",
+    },
     "setup.info": {
         "de": ("Key und Shared Secret stehen beide auf deiner\n"
                "API-Konto-Seite (Anwendung anklicken)."),
