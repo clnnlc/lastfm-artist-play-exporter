@@ -528,7 +528,8 @@ class App(ctk.CTk):
                 path = find_source_json(self.folder)
             records = load_source_records(path)
         except (FileNotFoundError, ValueError) as err:
-            messagebox.showerror(t("load.error_title"), str(err))
+            msg = t(err.key, **err.params) if hasattr(err, "key") else str(err)
+            messagebox.showerror(t("load.error_title"), msg)
             self.status_var.set(t("load.no_data"))
             self.status_lbl.configure(text_color=theme.ERROR)
             return

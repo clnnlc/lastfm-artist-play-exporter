@@ -6,7 +6,7 @@ der aktuell gesetzten Sprache und fuellt optionale Platzhalter via str.format.
 from __future__ import annotations
 
 LANGUAGES = ("de", "en")
-DEFAULT_LANGUAGE = "de"
+DEFAULT_LANGUAGE = "en"
 
 _current = DEFAULT_LANGUAGE
 
@@ -64,6 +64,18 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     # Laden
     "load.error_title": {"de": "Fehler beim Laden", "en": "Load error"},
     "load.no_data": {"de": "Keine Daten geladen.", "en": "No data loaded."},
+    "load.no_source_json": {
+        "de": "Keine Quell-JSON-Datei in {folder} gefunden.",
+        "en": "No source JSON file found in {folder}.",
+    },
+    "load.multiple_json": {
+        "de": "Mehrere JSON-Dateien gefunden: {files}",
+        "en": "Multiple JSON files found: {files}",
+    },
+    "load.bad_format": {
+        "de": "{filename} ist keine Spotify-History (Liste von Einträgen erwartet).",
+        "en": "{filename} is not a Spotify history (a list of entries was expected).",
+    },
     "load.summary": {
         "de": "{records} Einträge, {artists} Artists geladen.",
         "en": "{records} entries, {artists} artists loaded.",

@@ -13,21 +13,48 @@ MIN_GAP_MINUTES = 2
 MAX_GAP_MINUTES = 25
 
 
+# Quell-Fehler tragen einen i18n-Schluessel + Parameter, damit die GUI sie in
+# der aktiven Sprache anzeigen kann. Sie erben von den erwarteten Standardtypen,
+# damit bestehende Aufrufer (except FileNotFoundError/ValueError) unveraendert
+# greifen.
+class NoSourceJson(FileNotFoundError):
+    def __init__(self, folder: str) -> None:
+        super().__init__(f"No source JSON file found in {folder}.")
+        self.key = "load.no_source_json"
+        self.params = {"folder": folder}
+
+
+class MultipleSourceJson(ValueError):
+    def __init__(self, files: str) -> None:
+        super().__init__(f"Multiple JSON files found: {files}")
+        self.key = "load.multiple_json"
+        self.params = {"files": files}
+
+
+class BadSourceFormat(ValueError):
+    def __init__(self, filename: str) -> None:
+        super().__init__(
+            f"{filename} is not a Spotify history (a list of entries "
+            "was expected).")
+        self.key = "load.bad_format"
+        self.params = {"filename": filename}
+
+
 def find_source_json(folder: str) -> str:
     """Findet die einzige Quell-JSON-Datei in `folder`.
 
     Eigene Dateien der App (lastfm_import_*.json, lastfm_config.json)
     werden ignoriert.
-    Wirft FileNotFoundError wenn keine, ValueError wenn mehrere existieren.
+    Wirft NoSourceJson wenn keine, MultipleSourceJson wenn mehrere existieren.
     """
     candidates = sorted(
         f for f in os.listdir(folder)
         if f.lower().endswith(".json")
         and not f.lower().startswith("lastfm_"))
     if not candidates:
-        raise FileNotFoundError(f"Keine JSON-Datei in {folder} gefunden.")
+        raise NoSourceJson(folder)
     if len(candidates) > 1:
-        raise ValueError(f"Mehrere JSON-Dateien gefunden: {', '.join(candidates)}")
+        raise MultipleSourceJson(", ".join(candidates))
     return os.path.join(folder, candidates[0])
 
 
@@ -35,9 +62,7 @@ def load_source_records(path: str) -> list[dict]:
     with open(path, encoding="utf-8") as f:
         data = json.load(f)
     if not isinstance(data, list) or not all(isinstance(r, dict) for r in data):
-        raise ValueError(
-            f"{os.path.basename(path)} ist keine Spotify-History "
-            "(Liste von Eintraegen erwartet).")
+        raise BadSourceFormat(os.path.basename(path))
     return data
 
 
