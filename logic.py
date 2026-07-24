@@ -12,6 +12,10 @@ from datetime import datetime, timedelta
 MIN_GAP_MINUTES = 2
 MAX_GAP_MINUTES = 25
 
+# Zielname der automatisch zusammengefuehrten Quelle. Beginnt mit "lastfm_",
+# damit list_source_json sie NICHT als Kandidat zaehlt (kein Doppel-Merge).
+MERGED_FILENAME = "lastfm_merged_history.json"
+
 
 # Quell-Fehler tragen einen i18n-Schluessel + Parameter, damit die GUI sie in
 # der aktiven Sprache anzeigen kann. Sie erben von den erwarteten Standardtypen,
@@ -40,22 +44,41 @@ class BadSourceFormat(ValueError):
         self.params = {"filename": filename}
 
 
-def find_source_json(folder: str) -> str:
-    """Findet die einzige Quell-JSON-Datei in `folder`.
+def list_source_json(folder: str) -> list[str]:
+    """Quell-JSON-Kandidaten in `folder`, alphabetisch sortiert.
 
-    Eigene Dateien der App (lastfm_import_*.json, lastfm_config.json)
-    werden ignoriert.
-    Wirft NoSourceJson wenn keine, MultipleSourceJson wenn mehrere existieren.
+    Eigene Dateien der App (lastfm_*.json, z.B. lastfm_import_*, lastfm_config,
+    die zusammengefuehrte lastfm_merged_history.json) werden ignoriert.
     """
-    candidates = sorted(
+    return sorted(
         f for f in os.listdir(folder)
         if f.lower().endswith(".json")
         and not f.lower().startswith("lastfm_"))
+
+
+def find_source_json(folder: str) -> str:
+    """Findet die einzige Quell-JSON-Datei in `folder`.
+
+    Wirft NoSourceJson wenn keine, MultipleSourceJson wenn mehrere existieren.
+    """
+    candidates = list_source_json(folder)
     if not candidates:
         raise NoSourceJson(folder)
     if len(candidates) > 1:
         raise MultipleSourceJson(", ".join(candidates))
     return os.path.join(folder, candidates[0])
+
+
+def resolve_source_path(folder: str, remembered: str | None) -> str:
+    """Bevorzugt die gemerkte (zusammengefuehrte) Quelle, wenn sie noch
+    existiert; sonst die einzige Datei im Ordner.
+
+    Wirft MultipleSourceJson/NoSourceJson wie find_source_json, wenn keine
+    gueltige gemerkte Quelle vorliegt.
+    """
+    if remembered and os.path.isfile(remembered):
+        return remembered
+    return find_source_json(folder)
 
 
 def load_source_records(path: str) -> list[dict]:

@@ -60,6 +60,42 @@ def test_find_source_json_ignores_config_file(tmp_path):
     assert find_source_json(str(tmp_path)) == str(source)
 
 
+def test_list_source_json_excludes_own_files(tmp_path):
+    (tmp_path / "a.json").write_text("[]", encoding="utf-8")
+    (tmp_path / "b.json").write_text("[]", encoding="utf-8")
+    (tmp_path / "lastfm_import_20260702.json").write_text("[]", encoding="utf-8")
+    (tmp_path / "lastfm_merged_history.json").write_text("[]", encoding="utf-8")
+    from logic import list_source_json
+    assert list_source_json(str(tmp_path)) == ["a.json", "b.json"]
+
+
+def test_resolve_source_path_prefers_remembered(tmp_path):
+    from logic import resolve_source_path
+    (tmp_path / "a.json").write_text("[]", encoding="utf-8")
+    (tmp_path / "b.json").write_text("[]", encoding="utf-8")
+    merged = tmp_path / "lastfm_merged_history.json"
+    merged.write_text("[]", encoding="utf-8")
+    # Mehrere Rohdateien vorhanden, aber die gemerkte Quelle gewinnt.
+    assert resolve_source_path(str(tmp_path), str(merged)) == str(merged)
+
+
+def test_resolve_source_path_falls_back_to_single(tmp_path):
+    from logic import resolve_source_path
+    source = tmp_path / "history.json"
+    source.write_text("[]", encoding="utf-8")
+    assert resolve_source_path(str(tmp_path), None) == str(source)
+    # Gemerkter Pfad existiert nicht mehr -> Fallback auf die einzige Datei.
+    assert resolve_source_path(str(tmp_path), str(tmp_path / "gone.json")) == str(source)
+
+
+def test_resolve_source_path_raises_multiple_when_nothing_remembered(tmp_path):
+    from logic import MultipleSourceJson, resolve_source_path
+    (tmp_path / "a.json").write_text("[]", encoding="utf-8")
+    (tmp_path / "b.json").write_text("[]", encoding="utf-8")
+    with pytest.raises(MultipleSourceJson):
+        resolve_source_path(str(tmp_path), None)
+
+
 def test_load_source_records_returns_parsed_list(tmp_path):
     json_file = tmp_path / "data.json"
     json_file.write_text('[{"a": 1}, {"a": 2}]', encoding="utf-8")

@@ -219,6 +219,20 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "en": "Save merged file",
     },
     "merge.error_title": {"de": "Fehler beim Zusammenführen", "en": "Merge error"},
+    "merge.multiple_title": {
+        "de": "Mehrere JSON-Dateien gefunden",
+        "en": "Multiple JSON files found",
+    },
+    "merge.multiple_msg": {
+        "de": ("Mehrere JSON-Dateien gefunden:\n{files}\n\nJetzt zusammenführen "
+               "und künftig nur die zusammengeführte Liste verwenden?"),
+        "en": ("Found multiple JSON files:\n{files}\n\nMerge them now and use "
+               "only the merged list from now on?"),
+    },
+    "merge.multiple_hint": {
+        "de": "Mehrere JSON-Dateien vorhanden – über den 🔄-Button zusammenführen, um zu laden.",
+        "en": "Multiple JSON files present – merge them with the 🔄 button to load.",
+    },
     "merge.done_status": {
         "de": "{n} Einträge aus {files} Dateien zusammengeführt.",
         "en": "Merged {n} entries from {files} files.",

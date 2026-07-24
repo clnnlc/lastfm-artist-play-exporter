@@ -18,13 +18,16 @@ import lastfm_api
 import theme
 from i18n import t
 from logic import (
+    MERGED_FILENAME,
+    MultipleSourceJson,
     aggregate_by_artist,
     default_export_filename,
-    find_source_json,
     generate_export_records,
+    list_source_json,
     load_source_records,
     merge_spotify_histories,
     rebalance_targets,
+    resolve_source_path,
     synthetic_records,
     write_export_json,
 )
@@ -522,10 +525,17 @@ class App(ctk.CTk):
     # ------------------------------------------------------------------ #
     # Daten laden
     # ------------------------------------------------------------------ #
-    def _load_data(self, path: str | None = None) -> None:
+    def _load_data(self, path: str | None = None,
+                   remember: bool = False) -> None:
         try:
             if path is None:
-                path = find_source_json(self.folder)
+                remembered = lastfm_api.load_config(
+                    self._config_path()).get("source_file")
+                try:
+                    path = resolve_source_path(self.folder, remembered)
+                except MultipleSourceJson:
+                    self._offer_merge_multiple()
+                    return
             records = load_source_records(path)
         except (FileNotFoundError, ValueError) as err:
             msg = t(err.key, **err.params) if hasattr(err, "key") else str(err)
@@ -533,6 +543,8 @@ class App(ctk.CTk):
             self.status_var.set(t("load.no_data"))
             self.status_lbl.configure(text_color=theme.ERROR)
             return
+        if remember:
+            self._remember_source(path)
         self.grouped = aggregate_by_artist(records)
         self.custom_records = {}
         self.artist_state = {
@@ -544,6 +556,36 @@ class App(ctk.CTk):
             t("load.summary", records=len(records), artists=len(self.grouped)))
         self.status_lbl.configure(text_color=theme.SUCCESS)
         self._refresh_rows()
+
+    def _remember_source(self, path: str) -> None:
+        """Merkt die (zusammengefuehrte) Quelldatei in der Konfiguration, damit
+        kuenftige Starts nur noch sie laden und mehrere Rohdateien im Ordner
+        nicht mehr stoeren."""
+        config = lastfm_api.load_config(self._config_path())
+        config["source_file"] = path
+        lastfm_api.save_config(config, self._config_path())
+
+    def _offer_merge_multiple(self) -> None:
+        """Bietet beim Start an, mehrere gefundene JSONs zusammenzufuehren, und
+        merkt sich das Ergebnis als kuenftige Quelle."""
+        candidates = list_source_json(self.folder)
+        if not messagebox.askyesno(
+                t("merge.multiple_title"),
+                t("merge.multiple_msg", files=", ".join(candidates))):
+            self.status_var.set(t("merge.multiple_hint"))
+            self.status_lbl.configure(text_color=theme.WARNING)
+            return
+        paths = [os.path.join(self.folder, c) for c in candidates]
+        output_path = os.path.join(self.folder, MERGED_FILENAME)
+        try:
+            merged = merge_spotify_histories(paths)
+            write_export_json(merged, output_path)
+        except (OSError, ValueError) as err:
+            messagebox.showerror(t("merge.error_title"), str(err))
+            self.status_var.set(t("load.no_data"))
+            self.status_lbl.configure(text_color=theme.ERROR)
+            return
+        self._load_data(output_path, remember=True)
 
     # ------------------------------------------------------------------ #
     # Tabelle
@@ -820,7 +862,7 @@ class App(ctk.CTk):
                 t("merge.done_title"),
                 t("merge.done_msg", n=len(merged), files=len(paths),
                   path=output_path)):
-            self._load_data(output_path)
+            self._load_data(output_path, remember=True)
 
     # ------------------------------------------------------------------ #
     # Export
