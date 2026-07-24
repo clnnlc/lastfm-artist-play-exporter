@@ -1,5 +1,9 @@
 # --- Secrets & personal data (NEVER commit) ---
-# lastfm_config.json contains api_key, api_secret, session_key
+# app_credentials.json: the bundled Last.fm app key/secret (build-time only)
+app_credentials.json
+# lastfm_session.dat: DPAPI-encrypted per-user session blob
+lastfm_session.dat
+# lastfm_config.json: local settings (language); no secrets, but per-user
 lastfm_config.json
 # raw Spotify "extended streaming history" exports
 streaming_history_audio_*.json
